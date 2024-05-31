@@ -1,216 +1,295 @@
-const semi = ['coppe', 'ori', 'spade', 'bastoni'];
-const valori = ['1', '3', '10', '9', '8', '7', '6', '5', '4', '2'];
-const punteggi = {'1': 11, '2': 0, '3': 10, '4': 0, '5': 0, '6': 0, '7': 0, '8': 2, '9': 3, '10': 4};
 const readline = require('readline');
 
-let mazzo = [];
+class Carta {
+    constructor(numero, seme, valore) {
+        this.numero = numero;
+        this.seme = seme;
+        this.valore = valore;
+    }
 
-const giocatori = {
-    'giocatore': [],
-    'bot1': [],
-    'bot2': [],
-    'bot3': [],
-    'bot4': []
-};
-
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
-semi.forEach(seme => {
-    valori.forEach(valore => {
-        mazzo.push({valore: valore, seme: seme});
-    });
-});
-
-function mescola(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+    toString() {
+        return `${this.numero} di ${this.seme} (valore: ${this.valore})`;
     }
 }
 
-mescola(mazzo);
-
-for (let i = 0; i < 8; i++) {
-    for (let giocatore in giocatori) {
-        giocatori[giocatore].push(mazzo.pop());
+class Mazzo {
+    constructor() {
+        this.semi = ['coppe', 'ori', 'spade', 'bastoni'];
+        this.numeri = ['1', '3', '10', '9', '8', '7', '6', '5', '4', '2'];
+        this.valori = {'1': 11, '2': 0, '3': 10, '4': 0, '5': 0, '6': 0, '7': 0, '8': 2, '9': 3, '10': 4};
+        this.mazzo = [];
+        this.inizializzaMazzo();
+        this.mescola();
     }
-}
 
-function mostraMano(mano) {
-    return mano.map(carta => `${carta.valore} di ${carta.seme}`).join(', ');
-}
+    inizializzaMazzo() {
+        this.semi.forEach(seme => {
+            this.numeri.forEach(numero => {
+                this.mazzo.push(new Carta(numero, seme, this.valori[numero]));
+            });
+        });
+    }
 
-function calcolaPunteggio(mano, punteggi) {
-    let punteggio = 0;
-    mano.forEach(carta => {
-        punteggio += punteggi[carta.valore];
-    });
-    return punteggio;
-}
-
-function haQuattroDue(mano) {
-    let countDue = mano.filter(carta => carta.valore === '2').length;
-    return countDue === 4;
-}
-
-function verificaGiocatori(giocatori, punteggi) {
-    for (let giocatore in giocatori) {
-        let mano = giocatori[giocatore];
-        let punteggio = calcolaPunteggio(mano, punteggi);
-        if (punteggio <= 6 || haQuattroDue(mano)) {
-            return false;
+    mescola() {
+        for (let i = this.mazzo.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.mazzo[i], this.mazzo[j]] = [this.mazzo[j], this.mazzo[i]];
         }
     }
-    return true;
+
+    pesca() {
+        return this.mazzo.pop();
+    }
 }
 
-if (verificaGiocatori(giocatori, punteggi)) {
-    console.log("Tutti i giocatori possono giocare.");
-    console.log("Le tue carte:", mostraMano(giocatori['giocatore']));
-} else {
-    console.log("Gioco annullato. Uno o più giocatori non soddisfano le condizioni per giocare.");
-    for (let giocatore in giocatori) {
-        let mano = giocatori[giocatore];
-        let punteggio = calcolaPunteggio(mano, punteggi);
-        if (punteggio <= 6 || haQuattroDue(mano)) {
-            console.log(`${giocatore} ha annullato il gioco. Le sue carte: ${mostraMano(mano)}`);
+class Mano {
+    constructor() {
+        this.carte = [];
+    }
+
+    aggiungiCarta(carta) {
+        this.carte.push(carta);
+    }
+
+    riordina() {
+        this.carte.sort((a, b) => {
+            if (a.valore === b.valore) {
+                return this.numeri.indexOf(a.numero) - this.numeri.indexOf(b.numero);
+            }
+            return b.valore - a.valore;
+        });
+    }
+
+    mostra() {
+        return this.carte.map(carta => carta.toString()).join(', ');
+    }
+
+    giocaCarta(numero, seme) {
+        const indice = this.carte.findIndex(carta => carta.numero === numero && carta.seme === seme);
+        if (indice !== -1) {
+            return this.carte.splice(indice, 1)[0];
         }
+        return null;
+    }
+
+    calcolaPunteggio() {
+        return this.carte.reduce((totale, carta) => totale += carta.valore, 0);
+    }
+
+    haQuattroDue() {
+        return this.carte.filter(carta => carta.numero === '2').length === 4;
     }
 }
 
-function calcolaSemeDominante(mano) {
-    const punteggiSemi = {'coppe': 0, 'ori': 0, 'spade': 0, 'bastoni': 0};
-    mano.forEach(carta => {
-        punteggiSemi[carta.seme] += (carta.valore === '2') ? 1 : punteggi[carta.valore];
-    });
-    return Object.keys(punteggiSemi).reduce((a, b) => punteggiSemi[a] > punteggiSemi[b] ? a : b);
-}
-
-function trovaCartaPiuAltaCheManca(mano, seme, cartaMassimaChiamata) {
-    const cartePresenti = mano.filter(carta => carta.seme === seme).map(carta => carta.valore);
-    for (let valore of valori) {
-        if (!cartePresenti.includes(valore) && valori.indexOf(valore) < valori.indexOf(cartaMassimaChiamata)) {
-            return valore;
-        }
+class Giocatore {
+    constructor(nome) {
+        this.nome = nome;
+        this.mano = new Mano();
     }
-    return null;
-}
 
-function pianificaChiamataBot(giocatore, mano, cartaMassimaChiamata, punteggioMassimo) {
-    const semeDominante = calcolaSemeDominante(mano);
-    const cartaChiamata = trovaCartaPiuAltaCheManca(mano, semeDominante, cartaMassimaChiamata);
+    riceviCarta(carta) {
+        this.mano.aggiungiCarta(carta);
+    }
 
-    if (cartaChiamata) {
-        console.log(`${giocatore} chiama ${cartaChiamata}.`);
-        return { tipo: 'carta', valore: cartaChiamata };
-    } else {
-        const puntiChiamata = Math.max(punteggioMassimo + 1, 60);
-        console.log(`${giocatore} chiama a ${puntiChiamata} punti.`);
-        return { tipo: 'punti', valore: puntiChiamata };
+    mostraMano() {
+        return this.mano.mostra();
+    }
+
+    calcolaPunteggio() {
+        return this.mano.calcolaPunteggio();
+    }
+
+    haQuattroDue() {
+        return this.mano.haQuattroDue();
     }
 }
 
-let faseGioco = 'chiamataCarte';
-let chiamate = [];
+class Gioco {
+    constructor() {
+        this.mazzo = new Mazzo();
+        this.giocatori = {
+            'giocatore': new Giocatore('giocatore'),
+            'bot1': new Giocatore('bot1'),
+            'bot2': new Giocatore('bot2'),
+            'bot3': new Giocatore('bot3'),
+            'bot4': new Giocatore('bot4')
+        };
+        this.rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+        this.faseGioco = 'chiamataCarte';
+        this.chiamate = [];
+        this.distribuisciCarte();
+        this.riordinaMani();
+    }
 
-async function faseChiamata(giocatori) {
-    let chiamataEffettuata = false;
-    let giro = 1;
-    let cartaMassimaChiamata = '0';
-    let punteggioMassimo = 0;
-
-    while (!chiamataEffettuata) {
-        console.log(`Giro ${giro}:`);
-        for (let giocatore in giocatori) {
-            if (giocatore === 'giocatore') {
-                if (faseGioco === 'chiamataCarte') {
-                    try {
-                        const cartaChiamata = await chiediCartaChiamata(giocatore, cartaMassimaChiamata);
-                        chiamate.push({ giocatore, tipo: 'carta', valore: cartaChiamata });
-                        cartaMassimaChiamata = cartaChiamata;
-                        faseGioco = 'chiamataPunti';
-                    } catch (error) {
-                        console.error(error.message);
-                    }
-                } else if (faseGioco === 'chiamataPunti') {
-                    try {
-                        const punteggioChiamata = await chiediPunteggioChiamata(giocatore, punteggioMassimo);
-                        chiamate.push({ giocatore, tipo: 'punti', valore: punteggioChiamata });
-                        punteggioMassimo = punteggioChiamata;
-                        chiamataEffettuata = true;
-                    } catch (error) {
-                        console.error(error.message);
-                    }
-                }
-            } else {
-                const chiamataBot = pianificaChiamataBot(giocatore, giocatori[giocatore], cartaMassimaChiamata, punteggioMassimo);
-                chiamate.push({ giocatore, tipo: chiamataBot.tipo, valore: chiamataBot.valore });
-
-                if (chiamataBot.tipo === 'carta') {
-                    cartaMassimaChiamata = chiamataBot.valore;
-                } else {
-                    punteggioMassimo = chiamataBot.valore;
-                }
-
-                if (faseGioco === 'chiamataCarte' && chiamataBot.tipo === 'punti') {
-                    faseGioco = 'chiamataPunti';
-                }
-
-                if (faseGioco === 'chiamataPunti') {
-                    chiamataEffettuata = true;
-                }
+    distribuisciCarte() {
+        for (let i = 0; i < 8; i++) {
+            for (let giocatore in this.giocatori) {
+                this.giocatori[giocatore].riceviCarta(this.mazzo.pesca());
             }
         }
-        giro++;
     }
-    console.log("Chiamate effettuate:", chiamate);
-}
 
-async function chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
-    return new Promise((resolve, reject) => {
-        rl.question(`${giocatore}, inserisci il numero della carta da chiamare (1-10, inserisci '0' per lasciare): `, (cartaChiamata) => {
-            const numeroCarta = parseInt(cartaChiamata);
-            if (numeroCarta >= 0 && numeroCarta <= 10) {
-                if (numeroCarta === 0) {
-                    console.log(`${giocatore} ha lasciato.`);
-                    resolve(0);
+    riordinaMani() {
+        for (let giocatore in this.giocatori) {
+            this.giocatori[giocatore].mano.riordina();
+        }
+    }
+
+    verificaGiocatori() {
+        for (let giocatore in this.giocatori) {
+            let punteggio = this.giocatori[giocatore].calcolaPunteggio();
+            if (punteggio <= 6 || this.giocatori[giocatore].haQuattroDue()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    async faseChiamata() {
+        if (this.verificaGiocatori()) {
+            console.log("Tutti i giocatori possono giocare.");
+            console.log("Le tue carte:", this.giocatori['giocatore'].mostraMano());
+        } else {
+            console.log("Gioco annullato. Uno o più giocatori non soddisfano le condizioni per giocare.");
+            for (let giocatore in this.giocatori) {
+                let punteggio = this.giocatori[giocatore].calcolaPunteggio();
+                if (punteggio <= 6 || this.giocatori[giocatore].haQuattroDue()) {
+                    console.log(`${giocatore} ha annullato il gioco. Le sue carte: ${this.giocatori[giocatore].mostraMano()}`);
+                }
+            }
+            return;
+        }
+
+        let chiamataEffettuata = false;
+        let giro = 1;
+        let cartaMassimaChiamata = '0';
+        let punteggioMassimo = 0;
+
+        while (!chiamataEffettuata) {
+            console.log(`Giro ${giro}:`);
+            for (let giocatore in this.giocatori) {
+                if (giocatore === 'giocatore') {
+                    if (this.faseGioco === 'chiamataCarte') {
+                        try {
+                            const cartaChiamata = await this.chiediCartaChiamata(giocatore, cartaMassimaChiamata);
+                            this.chiamate.push({ giocatore, tipo: 'carta', valore: cartaChiamata });
+                            cartaMassimaChiamata = cartaChiamata;
+                            this.faseGioco = 'chiamataPunti';
+                        } catch (error) {
+                            console.error(error.message);
+                        }
+                    } else if (this.faseGioco === 'chiamataPunti') {
+                        try {
+                            const punteggioChiamata = await this.chiediPunteggioChiamata(giocatore, punteggioMassimo);
+                            this.chiamate.push({ giocatore, tipo: 'punti', valore: punteggioChiamata });
+                            punteggioMassimo = punteggioChiamata;
+                            chiamataEffettuata = true;
+                        } catch (error) {
+                            console.error(error.message);
+                        }
+                    }
                 } else {
-                    const valoreCarta = valori[numeroCarta - 1];
-                    if (valori.indexOf(valoreCarta) > valori.indexOf(cartaMassimaChiamata)) {
-                        console.log(`${giocatore} chiama ${numeroCarta}.`);
-                        resolve(numeroCarta);
+                    const chiamataBot = this.pianificaChiamataBot(giocatore, this.giocatori[giocatore].mano, cartaMassimaChiamata, punteggioMassimo);
+                    this.chiamate.push({ giocatore, tipo: chiamataBot.tipo, valore: chiamataBot.valore });
+
+                    if (chiamataBot.tipo === 'carta') {
+                        cartaMassimaChiamata = chiamataBot.valore;
                     } else {
-                        console.log("Devi chiamare una carta con un valore maggiore della carta precedente.");
-                        reject(new Error("Input non valido."));
+                        punteggioMassimo = chiamataBot.valore;
+                    }
+
+                    if (this.faseGioco === 'chiamataCarte' && chiamataBot.tipo === 'punti') {
+                        this.faseGioco = 'chiamataPunti';
+                    }
+
+                    if (this.faseGioco === 'chiamataPunti') {
+                        chiamataEffettuata = true;
                     }
                 }
-            } else {
-                console.log("Input non valido. Devi inserire un numero tra 1 e 10 o '0' per lasciare.");
-                reject(new Error("Input non valido."));
             }
+            giro++;
+        }
+        console.log("Chiamate effettuate:", this.chiamate);
+    }
+
+    async chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
+        return new Promise((resolve, reject) => {
+            this.rl.question(`${giocatore}, inserisci il numero della carta da chiamare (1-10, inserisci '0' per lasciare): `, (cartaChiamata) => {
+                const numeroCarta = parseInt(cartaChiamata);
+                if (numeroCarta >= 0 && numeroCarta <= 10) {
+                    if (numeroCarta === 0) {
+                        console.log(`${giocatore} ha lasciato.`);
+                        resolve(0);
+                    } else {
+                        const valoreCarta = this.mazzo.valori[numeroCarta - 1];
+                        if (this.mazzo.numeri.indexOf(valoreCarta) > this.mazzo.numeri.indexOf(cartaMassimaChiamata)) {
+                            console.log(`${giocatore} chiama ${numeroCarta}.`);
+                            resolve(numeroCarta);
+                        } else {
+                            console.log("Devi chiamare una carta con un valore maggiore della carta precedente.");
+                            reject(new Error("Input non valido."));
+                        }
+                    }
+                } else {
+                    console.log("Input non valido. Devi inserire un numero tra 1 e 10 o '0' per lasciare.");
+                    reject(new Error("Input non valido."));
+                }
+            });
         });
-    });
+    }
+
+    async chiediPunteggioChiamata(giocatore, punteggioMassimo) {
+        return new Promise((resolve, reject) => {
+            this.rl.question(`${giocatore}, inserisci il punteggio da chiamare (60, 61, 62, ...): `, (punteggioChiamata) => {
+                const punti = parseInt(punteggioChiamata);
+                if (punti >= punteggioMassimo + 1) {
+                    console.log(`${giocatore} chiama a ${punti} punti.`);
+                    resolve(punti);
+                } else {
+                    console.log(`Devi chiamare un punteggio maggiore di ${punteggioMassimo}.`);
+                    reject(new Error("Input non valido."));
+                }
+            });
+        });
+    }
+
+    calcolaSemeDominante(mano) {
+        const punteggiSemi = {'coppe': 0, 'ori': 0, 'spade': 0, 'bastoni': 0};
+        mano.carte.forEach(carta => {
+            punteggiSemi[carta.seme] += (carta.numero === '2') ? 1 : carta.valore;
+        });
+        return Object.keys(punteggiSemi).reduce((a, b) => punteggiSemi[a] > punteggiSemi[b] ? a : b);
+    }
+
+    trovaCartaPiuAltaCheManca(mano, seme, cartaMassimaChiamata) {
+        const cartePresenti = mano.carte.filter(carta => carta.seme === seme).map(carta => carta.numero);
+        for (let valore of this.mazzo.numeri) {
+            if (!cartePresenti.includes(valore) && this.mazzo.numeri.indexOf(valore) < this.mazzo.numeri.indexOf(cartaMassimaChiamata)) {
+                return valore;
+            }
+        }
+        return null;
+    }
+
+    pianificaChiamataBot(giocatore, mano, cartaMassimaChiamata, punteggioMassimo) {
+        const semeDominante = this.calcolaSemeDominante(mano);
+        const cartaChiamata = this.trovaCartaPiuAltaCheManca(mano, semeDominante, cartaMassimaChiamata);
+
+        if (cartaChiamata) {
+            console.log(`${giocatore} chiama ${cartaChiamata}.`);
+            return { tipo: 'carta', valore: cartaChiamata };
+        } else {
+            const puntiChiamata = Math.max(punteggioMassimo + 1, 60);
+            console.log(`${giocatore} chiama a ${puntiChiamata} punti.`);
+            return { tipo: 'punti', valore: puntiChiamata };
+        }
+    }
 }
 
-async function chiediPunteggioChiamata(giocatore, punteggioMassimo) {
-    return new Promise((resolve, reject) => {
-        rl.question(`${giocatore}, inserisci il punteggio da chiamare (60, 61, 62, ...): `, (punteggioChiamata) => {
-            const punti = parseInt(punteggioChiamata);
-            if (punti >= punteggioMassimo + 1) {
-                console.log(`${giocatore} chiama a ${punti} punti.`);
-                resolve(punti);
-            } else {
-                console.log(`Devi chiamare un punteggio maggiore di ${punteggioMassimo}.`);
-                reject(new Error("Input non valido."));
-            }
-        });
-    });
-}
-
-faseChiamata(giocatori).then(() => {
-    rl.close();
+const gioco = new Gioco();
+gioco.faseChiamata().then(() => {
+    gioco.rl.close();
 });
-
