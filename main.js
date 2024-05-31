@@ -120,7 +120,7 @@ async function faseChiamata(giocatori) {
     let chiamataEffettuata = false;
     let giro = 1;
     let cartaMassimaChiamata = '1';
-    let punteggioMassimo = 59;
+    let punteggioMassimo = 60;
 
     while (!chiamataEffettuata) {
         console.log(`Giro ${giro}:`);
@@ -175,12 +175,13 @@ async function chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
             const numeroCarta = parseInt(cartaChiamata);
             if (numeroCarta >= 1 && numeroCarta <= 10) {
                 const valoreCarta = valori[numeroCarta - 1];
-                if (valori.indexOf(valoreCarta) < valori.indexOf(cartaMassimaChiamata) || cartaMassimaChiamata === '0') {
+                const punteggioCarta = punteggi[valoreCarta];
+                if (punteggioCarta < punteggi[cartaMassimaChiamata] || cartaMassimaChiamata === '0') {
                     cartaMassimaChiamata = valoreCarta;
                     console.log(`${giocatore} chiama ${valoreCarta}.`);
                     resolve(valoreCarta);
                 } else {
-                    console.log(`Devi chiamare una carta con un valore inferiore a ${cartaMassimaChiamata}.`);
+                    console.log(`Devi chiamare una carta con un punteggio minore di ${cartaMassimaChiamata}.`);
                     reject(new Error("Input non valido."));
                 }
             } else if (numeroCarta === 0) {
@@ -212,3 +213,4 @@ async function chiediPunteggioChiamata(giocatore, punteggioMassimo) {
 faseChiamata(giocatori).then(() => {
     rl.close();
 });
+
