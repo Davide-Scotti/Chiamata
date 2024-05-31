@@ -179,12 +179,12 @@ async function chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
                     resolve(0);
                 } else {
                     const valoreCarta = valori[numeroCarta - 1];
-                    if (valori.indexOf(valoreCarta) < valori.indexOf(cartaMassimaChiamata)) {
-                        console.log("Devi chiamare una carta con un valore maggiore o uguale alla carta precedente.");
-                        reject(new Error("Input non valido."));
+                    if (valori.indexOf(valoreCarta) > valori.indexOf(cartaMassimaChiamata)) {
+                        console.log(`${giocatore} chiama ${numeroCarta}.`);
+                        resolve(numeroCarta);
                     } else {
-                        console.log(`${giocatore} chiama ${valoreCarta}.`);
-                        resolve(valoreCarta);
+                        console.log("Devi chiamare una carta con un valore maggiore della carta precedente.");
+                        reject(new Error("Input non valido."));
                     }
                 }
             } else {
