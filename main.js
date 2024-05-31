@@ -119,8 +119,8 @@ let chiamate = [];
 async function faseChiamata(giocatori) {
     let chiamataEffettuata = false;
     let giro = 1;
-    let cartaMassimaChiamata = '1';
-    let punteggioMassimo = 60;
+    let cartaMassimaChiamata = '0';
+    let punteggioMassimo = 0;
 
     while (!chiamataEffettuata) {
         console.log(`Giro ${giro}:`);
@@ -173,20 +173,20 @@ async function chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
     return new Promise((resolve, reject) => {
         rl.question(`${giocatore}, inserisci il numero della carta da chiamare (1-10, inserisci '0' per lasciare): `, (cartaChiamata) => {
             const numeroCarta = parseInt(cartaChiamata);
-            if (numeroCarta >= 1 && numeroCarta <= 10) {
-                const valoreCarta = valori[numeroCarta - 1];
-                const punteggioCarta = punteggi[valoreCarta];
-                if (punteggioCarta < punteggi[cartaMassimaChiamata] || cartaMassimaChiamata === '0') {
-                    cartaMassimaChiamata = valoreCarta;
-                    console.log(`${giocatore} chiama ${valoreCarta}.`);
-                    resolve(valoreCarta);
+            if (numeroCarta >= 0 && numeroCarta <= 10) {
+                if (numeroCarta === 0) {
+                    console.log(`${giocatore} ha lasciato.`);
+                    resolve(0);
                 } else {
-                    console.log(`Devi chiamare una carta con un punteggio minore di ${cartaMassimaChiamata}.`);
-                    reject(new Error("Input non valido."));
+                    const valoreCarta = valori[numeroCarta - 1];
+                    if (valori.indexOf(valoreCarta) < valori.indexOf(cartaMassimaChiamata)) {
+                        console.log("Devi chiamare una carta con un valore maggiore o uguale alla carta precedente.");
+                        reject(new Error("Input non valido."));
+                    } else {
+                        console.log(`${giocatore} chiama ${valoreCarta}.`);
+                        resolve(valoreCarta);
+                    }
                 }
-            } else if (numeroCarta === 0) {
-                console.log(`${giocatore} ha lasciato.`);
-                resolve(0);
             } else {
                 console.log("Input non valido. Devi inserire un numero tra 1 e 10 o '0' per lasciare.");
                 reject(new Error("Input non valido."));
