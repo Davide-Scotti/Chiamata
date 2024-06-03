@@ -1,0 +1,14 @@
+F1: Apre la palette dei comandi
+F2: Rinomina la variabile o l'elemento sotto il cursore
+F3: Trova la prossima occorrenza della parola cercata
+F4: Passa alla prossima posizione di errore o avviso nel codice
+F5: Avvia o continua il debug
+
+F8: Passa al prossimo errore o avviso
+F9: Attiva o disattiva un punto di interruzione sulla linea corrente
+F10: Esegue il debug passo a passo oltre (Step Over)
+F11: Esegue il debug passo a passo dentro (Step Into)
+Shift + F11: Esegue il debug passo a passo fuori (Step Out)
+F12: Vai alla definizione del simbolo sotto il cursore
+Shift + F5: Arresta il debug
+Ctrl + Shift + F5: Riavvia il debug
