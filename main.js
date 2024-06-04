@@ -284,8 +284,8 @@ class Gioco {
     }
 
     verificaCartaValida(cartaChiamata, cartaMassimaChiamata) {
-        const numeriValidi = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'L'];
-        return numeriValidi.includes(cartaChiamata) && (cartaChiamata.valore <=  cartaMassimaChiamata.valore || cartaChiamata.numero < cartaMassimaChiamata.numero);
+        const numeriValidi = ['2', '4', '5', '6', '7', '8', '9', '10', '3', '1', 'L'];
+        return numeriValidi.includes(cartaChiamata) && (cartaChiamata <=  cartaMassimaChiamata && numeriValidi.indexOf(cartaChiamata) < numeriValidi.indexOf(cartaMassimaChiamata));
     }
 
     async calcolaSemeDominante(mano) {
