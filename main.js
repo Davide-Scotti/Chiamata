@@ -51,17 +51,46 @@ class Mano {
         this.carte.push(carta);
     }
 
-    riordina(numeri) {
-        this.carte.sort((a, b) => {
+    isSemeChiamato(seme, semeChiamato){
+        if(seme === semeChiamato)
+            return true;
+        return false;
+    }
+
+    riordina(numeri, semeChiamato) {
+        // Separare le carte del seme chiamato dalle altre carte
+        let carteChiamate = '';
+        for(let i = 0; i < 8; i++){
+            if(this.carte[i].seme == semeChiamato){
+                carteChiamate.push(this.carte[i]);
+                this.carte.splice(i, 1);
+            }
+        }
+
+        let altreCarte = this.carte.filter(carta => carta.seme !== semeChiamato);
+
+        // Ordinare le carte del seme chiamato per valore (usare numeri per l'ordine se necessario)
+        carteChiamate.sort((a, b) => {
             if (a.valore === b.valore) {
                 return numeri.indexOf(a.numero) - numeri.indexOf(b.numero);
             }
             return b.valore - a.valore;
         });
+
+        // Ordinare le altre carte per valore (usare numeri per l'ordine se necessario)
+        altreCarte.sort((a, b) => {
+            if (a.valore === b.valore) {
+                return numeri.indexOf(a.numero) - numeri.indexOf(b.numero);
+            }
+            return b.valore - a.valore;
+        });
+
+        // Unire le due liste
+        this.carte = [...carteChiamate, ...altreCarte];
     }
 
     mostra() {
-        return this.carte.map(carta => carta.toString()).join(', ');
+        return this.carte.map(carta => `${carta.numero} di ${carta.seme}`).join(', ');
     }
 
     giocaCarta(numero, seme) {
@@ -121,7 +150,8 @@ class Gioco {
         this.faseGioco = 'chiamataCarte';
         this.chiamate = [];
         this.distribuisciCarte();
-        this.riordinaMani();
+        this.semeChiamato = '';
+        this.riordinaMano();
     }
 
     distribuisciCarte() {
@@ -132,9 +162,15 @@ class Gioco {
         }
     }
 
+    riordinaMano() {
+        for (let giocatore in this.giocatori) {
+            this.giocatori[giocatore].mano.riordina(this.mazzo.numeri, this.calcolaSemeDominante(this.giocatori[giocatore].mano));
+        }
+    }
+
     riordinaMani() {
         for (let giocatore in this.giocatori) {
-            this.giocatori[giocatore].mano.riordina(this.mazzo.numeri);
+            this.giocatori[giocatore].mano.riordina(this.mazzo.numeri, this.semeChiamato);
         }
     }
 
@@ -240,6 +276,8 @@ class Gioco {
         semeBriscola = await this.calcolaSemeDominante(this.giocatori[chiamante].mano);
        }
         console.log(`${chiamante} chiama il ${cartaMassimaChiamata} di ${semeBriscola} a ${punteggioMassimo} punti.`);
+        this.semeChiamato = semeBriscola;
+        this.riordinaMani();
     }
 
     async chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
@@ -284,8 +322,8 @@ class Gioco {
     }
 
     verificaCartaValida(cartaChiamata, cartaMassimaChiamata) {
-        const numeriValidi = ['2', '4', '5', '6', '7', '8', '9', '10', '3', '1', 'L'];
-        return numeriValidi.includes(cartaChiamata) && (cartaChiamata <=  cartaMassimaChiamata && numeriValidi.indexOf(cartaChiamata) < numeriValidi.indexOf(cartaMassimaChiamata));
+        const numeriValidi = ['2', '4', '5', '6', '7', '8', '9', '10', '3', '1', 'L', '12'];
+        return numeriValidi.includes(cartaChiamata) && (cartaChiamata <=  cartaMassimaChiamata && numeriValidi.indexOf(cartaChiamata) < numeriValidi.indexOf(cartaMassimaChiamata) && numeriValidi.indexOf(cartaChiamata) <= 10);
     }
 
     async calcolaSemeDominante(mano) {
