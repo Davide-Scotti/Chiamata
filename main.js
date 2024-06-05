@@ -58,15 +58,7 @@ class Mano {
     }
 
     riordina(numeri, semeChiamato) {
-        // Separare le carte del seme chiamato dalle altre carte
-        let carteChiamate = '';
-        for(let i = 0; i < 8; i++){
-            if(this.carte[i].seme == semeChiamato){
-                carteChiamate.push(this.carte[i]);
-                this.carte.splice(i, 1);
-            }
-        }
-
+        let carteChiamate = this.carte.filter(carta => carta.seme === semeChiamato);
         let altreCarte = this.carte.filter(carta => carta.seme !== semeChiamato);
 
         // Ordinare le carte del seme chiamato per valore (usare numeri per l'ordine se necessario)
@@ -151,7 +143,9 @@ class Gioco {
         this.chiamate = [];
         this.distribuisciCarte();
         this.semeChiamato = '';
-        this.riordinaMano();
+        (async () => {
+            await this.riordinaMano();
+        })();
     }
 
     distribuisciCarte() {
@@ -162,9 +156,10 @@ class Gioco {
         }
     }
 
-    riordinaMano() {
+    async riordinaMano() {
         for (let giocatore in this.giocatori) {
-            this.giocatori[giocatore].mano.riordina(this.mazzo.numeri, this.calcolaSemeDominante(this.giocatori[giocatore].mano));
+            let semeDominante = await this.calcolaSemeDominante(this.giocatori[giocatore].mano)
+            this.giocatori[giocatore].mano.riordina(this.mazzo.numeri, semeDominante);
         }
     }
 
@@ -187,6 +182,7 @@ class Gioco {
     async faseChiamata() {
         if (this.verificaGiocatori()) {
             console.log("Tutti i giocatori possono giocare.");
+            await this.giocatori['giocatore'].riordinaMano;
             console.log("Le tue carte:", this.giocatori['giocatore'].mostraMano());
         } else {
             console.log("Gioco annullato. Uno o più giocatori non soddisfano le condizioni per giocare.");
@@ -278,6 +274,9 @@ class Gioco {
         console.log(`${chiamante} chiama il ${cartaMassimaChiamata} di ${semeBriscola} a ${punteggioMassimo} punti.`);
         this.semeChiamato = semeBriscola;
         this.riordinaMani();
+        console.log("Le tue carte:", this.giocatori['giocatore'].mostraMano());
+
+        // ora gestisco fase di gioco
     }
 
     async chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
@@ -323,7 +322,7 @@ class Gioco {
 
     verificaCartaValida(cartaChiamata, cartaMassimaChiamata) {
         const numeriValidi = ['2', '4', '5', '6', '7', '8', '9', '10', '3', '1', 'L', '12'];
-        return numeriValidi.includes(cartaChiamata) && (cartaChiamata <=  cartaMassimaChiamata && numeriValidi.indexOf(cartaChiamata) < numeriValidi.indexOf(cartaMassimaChiamata) && numeriValidi.indexOf(cartaChiamata) <= 10);
+        return numeriValidi.includes(cartaChiamata) && (cartaChiamata <=  cartaMassimaChiamata || numeriValidi.indexOf(cartaChiamata) < numeriValidi.indexOf(cartaMassimaChiamata) && numeriValidi.indexOf(cartaChiamata) <= 10);
     }
 
     async calcolaSemeDominante(mano) {
@@ -454,6 +453,95 @@ class Gioco {
             }
         }
     }
+
+    async faseGioco() {
+        console.log("Inizia la fase di gioco.");
+        let giocatoreCorrente = 'giocatore';
+        let vincitoreTurno = null;
+        let manoCorrente = 1;
+    
+        while (this.giocatori[giocatoreCorrente].mano.carte.length > 0) {
+            console.log(`Inizia la mano ${manoCorrente}.`);
+            let carteGiocate = {};
+            let cartePossibili = [...this.giocatori[giocatoreCorrente].mano.carte];
+            
+            // Turno del giocatore corrente
+            if (giocatoreCorrente === 'giocatore') {
+                console.log(`Le tue carte: ${this.giocatori['giocatore'].mostraMano()}`);
+                const cartaGiocata = await this.chiediCartaDaGiocare('giocatore', cartePossibili);
+                carteGiocate['giocatore'] = cartaGiocata;
+                console.log(`Hai giocato: ${cartaGiocata.numero} di ${cartaGiocata.seme}`);
+            } else {
+                const cartaGiocataBot = this.scegliCartaDaGiocareBot(giocatoreCorrente, cartePossibili);
+                carteGiocate[giocatoreCorrente] = cartaGiocataBot;
+                console.log(`${giocatoreCorrente} ha giocato: ${cartaGiocataBot.numero} di ${cartaGiocataBot.seme}`);
+            }
+    
+            cartePossibili = cartePossibili.filter(carta => carta !== carteGiocate[giocatoreCorrente]);
+    
+            // Verifica chi ha vinto il turno
+            if (!vincitoreTurno || this.vinceCarta(carteGiocate[giocatoreCorrente], carteGiocate[vincitoreTurno])) {
+                vincitoreTurno = giocatoreCorrente;
+            }
+    
+            // Cambio del giocatore corrente
+            giocatoreCorrente = this.prossimoGiocatore(giocatoreCorrente);
+            console.log(`È il turno di ${giocatoreCorrente}.`);
+    
+            // Se tutti i giocatori hanno giocato, determina il vincitore della mano e aggiorna il turno
+            if (Object.keys(carteGiocate).length === Object.keys(this.giocatori).length) {
+                console.log(`La mano è terminata. Vince ${vincitoreTurno}.`);
+                manoCorrente++;
+                giocatoreCorrente = vincitoreTurno;
+                vincitoreTurno = null;
+            }
+        }
+    
+        console.log("La fase di gioco è terminata.");
+    }
+    
+    async chiediCartaDaGiocare(giocatore, cartePossibili) {
+        return new Promise((resolve, reject) => {
+            this.rl.question(`${giocatore}, quale carta vuoi giocare? Inserisci l'indice della carta (0 - ${cartePossibili.length - 1}): `, (input) => {
+                const indiceCarta = parseInt(input.trim(), 10);
+                if (Number.isInteger(indiceCarta) && indiceCarta >= 0 && indiceCarta < cartePossibili.length) {
+                    resolve(cartePossibili[indiceCarta]);
+                } else {
+                    console.log('Indice non valido. Riprova.');
+                    this.chiediCartaDaGiocare(giocatore, cartePossibili).then(resolve);
+                }
+            });
+        });
+    }
+    
+    scegliCartaDaGiocareBot(giocatoreCorrente, cartePossibili) {
+        // Logica per la scelta della carta da parte del bot
+        // Qui dovresti implementare la logica per far scegliere al bot la carta da giocare
+        // Basandoti su tutti i fattori menzionati come la posizione nel giro, se sono chiamanti, soci o non soci, ecc.
+        // Questo richiederà una logica più complessa specifica per i bot
+        // Di seguito fornisco solo un esempio di implementazione semplice
+        return cartePossibili[Math.floor(Math.random() * cartePossibili.length)]; // Scegli una carta casuale per ora
+    }
+    
+    vinceCarta(cartaA, cartaB) {
+        // Logica per determinare quale carta vince tra due carte
+        // Qui dovresti implementare la logica per stabilire quale carta vince tra due carte
+        // Ad esempio, potresti confrontare i valori delle carte, considerando la briscola e il seme chiamato
+        // e restituire true se cartaA vince su cartaB, altrimenti false
+        // Questo è solo un esempio di implementazione, potrebbe essere necessaria una logica più complessa
+        return cartaA.valore > cartaB.valore;
+    }
+    
+    prossimoGiocatore(giocatoreCorrente) {
+        // Logica per determinare il prossimo giocatore
+        // Qui dovresti implementare la logica per determinare il prossimo giocatore
+        // Ad esempio, potresti avere un array predefinito dell'ordine dei giocatori
+        // e ciclare attraverso di esso per trovare il prossimo giocatore
+        // Questo è solo un esempio di implementazione, potrebbe essere necessaria una logica più complessa
+        const giocatori = Object.keys(this.giocatori);
+        const index = giocatori.indexOf(giocatoreCorrente);
+        return giocatori[(index + 1) % giocatori.length];
+    }    
 }
 
 const gioco = new Gioco();
