@@ -143,6 +143,7 @@ class Gioco {
         this.chiamate = [];
         this.distribuisciCarte();
         this.semeChiamato = '';
+        this.numeroChiamato = 0;
         (async () => {
             await this.riordinaMano();
         })();
@@ -195,7 +196,6 @@ class Gioco {
             return;
         }
 
-        let chiamataEffettuata = false;
         let cartaMassimaChiamata = { '0': 12};
         let punteggioMassimo = 60;
         let giocatoriInGioco = Object.keys(this.giocatori);
@@ -273,10 +273,9 @@ class Gioco {
        }
         console.log(`${chiamante} chiama il ${cartaMassimaChiamata} di ${semeBriscola} a ${punteggioMassimo} punti.`);
         this.semeChiamato = semeBriscola;
+        this.numeroChiamato = cartaMassimaChiamata.numero
         this.riordinaMani();
-        console.log("Le tue carte:", this.giocatori['giocatore'].mostraMano());
-
-        // ora gestisco fase di gioco
+        this.Gioco();
     }
 
     async chiediCartaChiamata(giocatore, cartaMassimaChiamata) {
@@ -454,16 +453,28 @@ class Gioco {
         }
     }
 
-    async faseGioco() {
+    async Gioco() {
         console.log("Inizia la fase di gioco.");
         let giocatoreCorrente = 'giocatore';
         let vincitoreTurno = null;
         let manoCorrente = 1;
-    
+        
         while (this.giocatori[giocatoreCorrente].mano.carte.length > 0) {
             console.log(`Inizia la mano ${manoCorrente}.`);
+            const giocatoriInOrdine = this.ordinaGiocatoriPerTurnoDiCarte(giocatoreCorrente);
+            console.log("Ordine dei giocatori:", giocatoriInOrdine.join(", "));
+    
             let carteGiocate = {};
             let cartePossibili = [...this.giocatori[giocatoreCorrente].mano.carte];
+            
+            // Mostra le carte giocate fino a quel punto
+            for (let giocatore of giocatoriInOrdine) {
+                if (carteGiocate[giocatore]) {
+                    console.log(`${giocatore} ha giocato: ${carteGiocate[giocatore].numero} di ${carteGiocate[giocatore].seme}`);
+                } else if (giocatore !== 'giocatore') {
+                    console.log(`${giocatore} deve ancora giocare.`);
+                }
+            }
             
             // Turno del giocatore corrente
             if (giocatoreCorrente === 'giocatore') {
@@ -476,18 +487,18 @@ class Gioco {
                 carteGiocate[giocatoreCorrente] = cartaGiocataBot;
                 console.log(`${giocatoreCorrente} ha giocato: ${cartaGiocataBot.numero} di ${cartaGiocataBot.seme}`);
             }
-    
+            
             cartePossibili = cartePossibili.filter(carta => carta !== carteGiocate[giocatoreCorrente]);
-    
+            
             // Verifica chi ha vinto il turno
             if (!vincitoreTurno || this.vinceCarta(carteGiocate[giocatoreCorrente], carteGiocate[vincitoreTurno])) {
                 vincitoreTurno = giocatoreCorrente;
             }
-    
+            
             // Cambio del giocatore corrente
             giocatoreCorrente = this.prossimoGiocatore(giocatoreCorrente);
             console.log(`È il turno di ${giocatoreCorrente}.`);
-    
+            
             // Se tutti i giocatori hanno giocato, determina il vincitore della mano e aggiorna il turno
             if (Object.keys(carteGiocate).length === Object.keys(this.giocatori).length) {
                 console.log(`La mano è terminata. Vince ${vincitoreTurno}.`);
@@ -496,7 +507,7 @@ class Gioco {
                 vincitoreTurno = null;
             }
         }
-    
+        
         console.log("La fase di gioco è terminata.");
     }
     
@@ -505,6 +516,7 @@ class Gioco {
             this.rl.question(`${giocatore}, quale carta vuoi giocare? Inserisci l'indice della carta (0 - ${cartePossibili.length - 1}): `, (input) => {
                 const indiceCarta = parseInt(input.trim(), 10);
                 if (Number.isInteger(indiceCarta) && indiceCarta >= 0 && indiceCarta < cartePossibili.length) {
+                    console.log(`Il giocatore ${giocatore} ha giocato: ${cartePossibili[indiceCarta].mostra}`)
                     resolve(cartePossibili[indiceCarta]);
                 } else {
                     console.log('Indice non valido. Riprova.');
@@ -513,14 +525,102 @@ class Gioco {
             });
         });
     }
-    
+
     scegliCartaDaGiocareBot(giocatoreCorrente, cartePossibili) {
-        // Logica per la scelta della carta da parte del bot
-        // Qui dovresti implementare la logica per far scegliere al bot la carta da giocare
-        // Basandoti su tutti i fattori menzionati come la posizione nel giro, se sono chiamanti, soci o non soci, ecc.
-        // Questo richiederà una logica più complessa specifica per i bot
-        // Di seguito fornisco solo un esempio di implementazione semplice
-        return cartePossibili[Math.floor(Math.random() * cartePossibili.length)]; // Scegli una carta casuale per ora
+       const bot = this.giocatori[giocatoreCorrente]
+       const briscolaChiamata = { 'numero': this.numeroChiamato,'seme': this.semeChiamato, 'valore': 0 }
+
+        const haBriscolaChiamata = bot.mano.carte.some(carta => carta.seme === briscolaChiamata);
+        const isChiamante = giocatoreCorrente === chiamante;
+        const isSocio = bot.mano.carte.includes(briscolaChiamata)
+        const isNonSocio = !isSocio;
+
+        let cartaScelta;
+        if (haBriscolaChiamata) {
+            // Se il bot è il chiamante, cerca di prendere il maggior numero di mani possibili, con il maggior numero di punti possibili
+            // Se è il socio, prova a dare più punti possibili al chiamante, oppure di prendere il maggior numero possibile di punti dai non soci
+            // Altrimenti, prova a prendere la mano con la briscola chiamata, in base alla posizione nel giro ed al numero di non soci che ha dietro, in caso dietro ci sia il chiamante, esso potrebbe caricare
+            cartaScelta = this.scegliCartaSocio(bot, cartePossibili, isChiamante);
+        } else if (isNonSocio) {
+            // Se il bot è un non socio, cerca di capire chi è il socio e gioca contro di lui e il chiamante
+            cartaScelta = this.scegliCartaDaNonSocio(bot, cartePossibili);
+        } else {
+            // Altrimenti, il bot in questione è il chiamante, sceglie le carte da giocare in modo da evitare strozzi troppo rischiosi, oppure per cercar di far mangiare le briscole ai non soci, oppure per prendere il maggior numero possibile di punti
+            cartaScelta = this.segliCartaChiamante(bot, cartePossibili);
+        }
+
+        return cartaScelta;
+    }
+
+    scegliCartaSocio(bot, cartePossibili, isChiamante) {
+        // Se il bot è il chiamante, vuol dire che il bot si è chiamato in mano, e dovrà giocare da solo
+        if (isChiamante) {
+            // Implementa la logica per cercare di dare più punti possibili al chiamante
+            // Se non ci sono carte che possono dare punti al chiamante, gioca una carta a caso
+            const cartePunti = this.trovaCartePunti(bot.mano.carte);
+            if (cartePunti.length > 0) {
+                return this.scegliCartaMigliorePerPunti(cartePunti, cartePossibili);
+            }
+        }
+    
+        // Altrimenti, se ci sono in banco tanti punti e  il chiamante è dopo, carica, solo se non ci sono briscole e/o sono basse
+        //se non ci sono in banco punti prova a strozzare, oppure vai liscio
+        //se ci sono tanti punti e hai tante briscole prendi di briscola, decidi se uscire con quella del socio per far capire che sei socio, oppure usarne un altra
+
+        const briscoleChiamata = bot.mano.carte.filter(carta => carta.seme === this.briscola.chiamata);
+        const cartaMigliore = this.scegliCartaMigliorePerPunti(briscoleChiamata, cartePossibili);
+        if (cartaMigliore) {
+            return cartaMigliore;
+        }
+    
+        // Se non ci sono briscole chiamate o non è possibile dare punti al chiamante, gioca una carta a caso
+        return cartePossibili[Math.floor(Math.random() * cartePossibili.length)];
+    }
+    
+    scegliCartaDaNonSocio(bot, cartePossibili) {
+        // Implementa la logica per capire chi è il socio e gioca contro di lui e il chiamante
+        // Puoi considerare la posizione nel giro, le carte già giocate, ecc.
+        // Per ora, gioca una carta casuale
+        return cartePossibili[Math.floor(Math.random() * cartePossibili.length)];
+    }
+    
+    scegliCartaMigliorePerPunti(carte, cartePossibili) {
+        // Implementa la logica per scegliere la carta migliore in base ai punti
+        // Puoi considerare le carte già giocate, la posizione nel giro, ecc.
+        // Per ora, restituisci la carta con il punteggio più alto tra quelle disponibili
+        // Se non ci sono carte che possono dare punti, restituisci null
+        // Questo è solo un esempio di implementazione, dovresti adattarlo alle tue esigenze specifiche
+        // Puoi utilizzare una logica simile a questa per implementare la tua funzione
+        let cartaMigliore = null;
+        let punteggioMigliore = 0;
+        for (let carta of carte) {
+            const punteggioCarta = this.calcolaPunteggioCarta(carta);
+            if (punteggioCarta > punteggioMigliore && cartePossibili.includes(carta)) {
+                cartaMigliore = carta;
+                punteggioMigliore = punteggioCarta;
+            }
+        }
+        return cartaMigliore;
+    }
+    
+    trovaCartePunti(carte) {
+        // Restituisce tutte le carte che possono dare punti
+        // Implementa questa funzione in base alle regole del tuo gioco
+        // Questo è solo un esempio di implementazione, dovresti adattarlo alle tue esigenze specifiche
+        return carte.filter(carta => carta.valore > 10); // Ad esempio, restituisce le carte con valore maggiore di 10
+    }
+    
+    calcolaPunteggioCarta(carta) {
+        // Calcola il punteggio della carta
+        // Implementa questa funzione in base alle regole del tuo gioco
+        // Questo è solo un esempio di implementazione, dovresti adattarlo alle tue esigenze specifiche
+        return carta.valore; // Ad esempio, restituisce il valore della carta come punteggio
+    }
+
+    ordinaGiocatoriPerTurnoDiCarte(giocatoreCorrente) {
+        const giocatori = Object.keys(this.giocatori);
+        const index = giocatori.indexOf(giocatoreCorrente);
+        return [...giocatori.slice(index), ...giocatori.slice(0, index)];
     }
     
     vinceCarta(cartaA, cartaB) {
