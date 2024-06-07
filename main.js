@@ -255,7 +255,6 @@ class Gioco {
                     }
 
                     if (giocatoriInGioco.length === 1) {
-                        chiamataEffettuata = true;
                         this.faseGioco = 'gioco';
                         break;
                     }
@@ -267,7 +266,7 @@ class Gioco {
         const chiamante = giocatoriInGioco[0];
         let semeBriscola = '';
         if(chiamante === 'giocatore1'){
-            semeBriscola = await this.chiediSemeBriscola();
+            semeBriscola = await this.chiediSemeBriscola('giocatore1');
        }else{
         semeBriscola = await this.calcolaSemeDominante(this.giocatori[chiamante].mano);
        }
@@ -531,7 +530,7 @@ class Gioco {
        const briscolaChiamata = { 'numero': this.numeroChiamato,'seme': this.semeChiamato, 'valore': 0 }
 
         const haBriscolaChiamata = bot.mano.carte.some(carta => carta.seme === briscolaChiamata);
-        const isChiamante = giocatoreCorrente === chiamante;
+        const isChiamante = giocatoreCorrente === this.chiamante;
         const isSocio = bot.mano.carte.includes(briscolaChiamata)
         const isNonSocio = !isSocio;
 
