@@ -23,7 +23,7 @@ class Carta {
         char getSeme() const { return seme; }
         int getValore() const { return valore; }
         
-        void Scrivi() const { cout << numero << " di " << seme << endl; }
+        void Scrivi() const { cout << numero << seme << ", "; }
 };
 
 class Mazzo {
@@ -62,11 +62,15 @@ class Mazzo {
 
 class Mano {
     private:
-        vector<Carta> carte;
+        mutable vector<Carta> carte;
     public: 
         Mano() { }
 
         void aggiungiCarta(const Carta& carta) {
+            carte.push_back(carta);
+        }
+
+        void aggiungiCarta(const Carta& carta) const {
             carte.push_back(carta);
         }
 
@@ -105,22 +109,18 @@ class Mano {
             carteModificabile.insert(carteModificabile.end(), altreCarte.begin(), altreCarte.end());
         }
 
-          void ScriviMano() const {
+        void ScriviMano() const {
             for (const auto& carta : carte) {
                 carta.Scrivi();
             }
+
+            cout << endl;
         }
 
-         Carta giocaCarta(int numero, char seme) {
-            auto it = find_if(carte.begin(), carte.end(), [numero, seme](const Carta& carta) {
-                return carta.getNumero() == numero && carta.getSeme() == seme;
-            });
-            if (it != carte.end()) {
-                Carta cartaGiocata = *it;
-                carte.erase(it);
-                return cartaGiocata;
-            }
-            throw runtime_error("Carta non trovata!");
+        Carta giocaCartaPerPosizione(int posizione) const {
+            Carta giocata = carte[posizione - 1];
+            carte.erase(carte.begin() + posizione - 1);
+            return giocata;
         }
 
         int calcolaPunteggio() const {
@@ -171,6 +171,8 @@ class Giocatore {
 
         const Mano& getMano() const { return mano; }
 
+        const Mano& getMazzetto() const { return mazzetto; }
+
         const string& getNome() const { return nome; }
 
         bool operator==(const Giocatore& other) const {
@@ -184,7 +186,8 @@ class Gioco {
         vector<Giocatore> giocatori;
         string fase = "C"; // "C" chiama carte, "P" chiama punti, "G" gioco;
         string chiamante;
-        Carta cartaChiamata;
+        int numeroCarta;
+        char semeCarta;
         int puntiChiamati = 60;
     public:
         Gioco(){
@@ -254,7 +257,7 @@ class Gioco {
 
             if (n < 0 || n > 10) {
                 cout << "Valore non valido. Inserire un numero compreso tra 0 e 10." << endl;
-                return chiediCartaChiamata(giocatore, cartaMassimaChiamata); // Richiama la funzione per chiedere un'altra carta
+                return chiediCartaChiamata(giocatore, cartaMassimaChiamata); 
             }
 
             int ordine[] = {1, 3, 10, 9, 8, 7, 6, 5, 4, 2, 0};
@@ -279,8 +282,25 @@ class Gioco {
                 return n;
             } else {
                 cout << "Carta non valida. Devi chiamare una carta di valore maggiore o uguale alla carta massima chiamata." << endl;
-                return chiediCartaChiamata(giocatore, cartaMassimaChiamata); // Richiama la funzione per chiedere un'altra carta
+                return chiediCartaChiamata(giocatore, cartaMassimaChiamata);
             }
+        }
+
+        int chiediPuntiChiamati(string giocatore, int puntiMassimiChiamati){
+            cout << giocatore << ", inserisci i punti che vuoi chiamare(numero da " << puntiMassimiChiamati << " a 120, oppure 0 per lasciare): ";
+            int n;
+            cin >> n;
+
+             if (n == 0) {
+                return 0;
+            }
+
+            if (n < puntiMassimiChiamati || n > 120) {
+                cout << "Valore non valido. Inserire un numero compreso tra " << puntiMassimiChiamati << " e 120 oppure lascia." << endl;
+                return chiediCartaChiamata(giocatore, puntiMassimiChiamati); 
+            }
+
+            return n;
         }
 
         void faseChiamata() {
@@ -302,6 +322,7 @@ class Gioco {
 
             int cartaAttuale = -1;
             vector<Giocatore> giocatoriInGioco = giocatori;
+            int puntiAttuali = 60;
 
             do{
                 for (auto it = giocatoriInGioco.begin(); it != giocatoriInGioco.end();) {
@@ -315,6 +336,7 @@ class Gioco {
                             } else if (numeroChiamato == 2) {
                                 cartaAttuale = numeroChiamato;
                                 fase = "P";
+                                ++it;
                             } else {
                                 cartaAttuale = numeroChiamato;
                                 ++it;
@@ -322,13 +344,115 @@ class Gioco {
                         } catch (runtime_error) {
                             cout << "Errore nella fase chiamata numeri";
                         }
+                    } else {
+                        int puntiChiesti = chiediPuntiChiamati(giocatore.getNome(), puntiAttuali);
+                        if(puntiChiesti == 0) {
+                            cout << giocatore.getNome() << " ha lasciato." << endl;
+                            it = giocatoriInGioco.erase(it);
+                        }else{
+                            puntiAttuali = puntiChiesti;
+                            ++it;
+                        }
+                    }
+
+                    if (giocatoriInGioco.size() == 1) {
+                        cout << "Il vincitore è " << giocatoriInGioco[0].getNome() << " e sceglie il seme:\n";
+                        cin >> semeCarta;
+                        puntiChiamati = puntiAttuali;
+                        numeroCarta = cartaAttuale;
+                        chiamante = giocatoriInGioco[0].getNome();
+
+                        cout << chiamante << " ha chiamato il: " << numeroCarta << " di " << semeCarta << " al " << puntiChiamati << endl;
+                        break; 
                     }
                 }
             }while(giocatoriInGioco.size() > 1);
 
-            if (!giocatoriInGioco.size() == 1) {
-                cout << "Il vincitore è " << giocatoriInGioco[0].getNome() << " con la mano:\n";
-                giocatoriInGioco[0].mostraMano();
+            faseGioco();
+        }
+
+        void faseGioco() {
+            int turno = 0; // Il turno iniziale è del primo giocatore
+            int numeroGiri = 8; // Ogni giocatore ha 8 carte iniziali
+            char semeChiamato = semeCarta; // Il seme della carta chiamata
+            int numeroChiamato = numeroCarta; // Il numero della carta chiamata
+            Giocatore* chiamanteGiocatore = nullptr; // Puntatore al giocatore chiamante
+            Giocatore* proprietarioCartaChiamata = nullptr; // Puntatore al giocatore che possiede la carta chiamata
+
+            // Troviamo il giocatore chiamante e il proprietario della carta chiamata
+            for (auto& giocatore : giocatori) {
+                if (giocatore.getNome() == chiamante) {
+                    chiamanteGiocatore = &giocatore;
+                }
+
+                for (const auto& carta : giocatore.getMano().getCarte()) {
+                    if (carta.getNumero() == numeroChiamato && carta.getSeme() == semeChiamato) {
+                        proprietarioCartaChiamata = &giocatore;
+                    }
+                }
+            }
+
+            // Inizia la fase di gioco
+            for (int i = 0; i < numeroGiri; i++) {
+                vector<pair<Giocatore*, Carta>> carteGiocate; // Per memorizzare le carte giocate in ogni giro
+                char semeMano;
+                bool primoGiro = true;
+                int posizione; 
+                
+                // Ogni giocatore gioca una carta
+                for (auto& giocatore : giocatori) {
+                    giocatore.mostraMano();
+                    cout << giocatore.getNome() << ", inserisci la posizione della carta da giocare (1-8): ";
+                    cin >> posizione;
+
+                        Carta cartaGiocata = giocatore.getMano().giocaCartaPerPosizione(posizione);
+                        carteGiocate.push_back({&giocatore, cartaGiocata});
+
+                        if (primoGiro) {
+                            semeMano = cartaGiocata.getSeme();
+                            primoGiro = false;
+                        }
+
+                        cout << giocatore.getNome() << " ha giocato ";
+                        cartaGiocata.Scrivi();
+                        cout << endl;
+                }
+
+                // Determiniamo il vincitore della mano
+                auto cartaVincente = carteGiocate[0];
+                for (const auto& cartaGiocata : carteGiocate) {
+                    if (cartaGiocata.second.getSeme() == semeChiamato) {
+                        if (cartaVincente.second.getSeme() != semeChiamato || cartaGiocata.second.getValore() > cartaVincente.second.getValore() ||
+                            (cartaGiocata.second.getValore() == cartaVincente.second.getValore() && cartaGiocata.second.getNumero() > cartaVincente.second.getNumero())) {
+                            cartaVincente = cartaGiocata;
+                        }
+                    } else if (cartaGiocata.second.getSeme() == semeMano) {
+                        if (cartaVincente.second.getSeme() != semeChiamato && 
+                            (cartaVincente.second.getSeme() != semeMano || cartaGiocata.second.getValore() > cartaVincente.second.getValore() ||
+                            (cartaGiocata.second.getValore() == cartaVincente.second.getValore() && cartaGiocata.second.getNumero() > cartaVincente.second.getNumero()))) {
+                            cartaVincente = cartaGiocata;
+                        }
+                    }
+                }
+
+                cout << cartaVincente.first->getNome() << " ha vinto la mano con ";
+                cartaVincente.second.Scrivi();
+                cout << endl;
+
+                // Aggiungiamo le carte giocate al mazzetto del vincitore
+                for (const auto& cartaGiocata : carteGiocate) {
+                    cartaVincente.first->getMazzetto().aggiungiCarta(cartaGiocata.second);
+                }
+            }
+
+            // Calcoliamo i punti e determiniamo se il chiamante ha vinto
+            int puntiTotali = chiamanteGiocatore->calcolaPunteggioMazzetto() + proprietarioCartaChiamata->calcolaPunteggioMazzetto();
+            cout << "Punti totali del chiamante e del compagno: " << puntiTotali << endl;
+
+            if (puntiTotali >= puntiChiamati) {
+                cout << chiamante << " ha vinto la partita!" << endl;
+            } else {
+                cout << chiamante << " ha perso la partita!" << endl;
             }
         }
 };

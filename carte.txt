@@ -1,0 +1,5 @@
+giocatore1 : 6 O, 2 O, 6 C, 5 S. 
+giocatore2 : 2 B, 8 O, 7 O, 7 C. 
+giocatore3 : 3 B, 7 B, 5 B, 4 B. 
+giocatore4 : 4 S, 2 S, 3 C, 2 C. 
+giocatore5 : 3 O, 10 S, 10 C, 9 B, 8 C. 
