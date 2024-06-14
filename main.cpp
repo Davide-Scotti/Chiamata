@@ -9,6 +9,16 @@
 
 using namespace std;
 
+struct Stato {
+    vector<Carta> carteInMano;
+    int numeroChiamato;
+    char semeChiamato;
+    vector<pair<Giocatore*, Carta>> carteGiocate;
+
+    Stato(const vector<Carta>& mano, int numeroChiamato, char semeChiamato, const vector<pair<Giocatore*, Carta>>& carteGiocate)
+        : carteInMano(mano), numeroChiamato(numeroChiamato), semeChiamato(semeChiamato), carteGiocate(carteGiocate) {}
+};
+
 class Carta {
     private: 
         int numero;
@@ -180,6 +190,21 @@ class Giocatore {
         }
 };
 
+class GiocatoreAI : public Giocatore {
+    public: 
+        GiocatoreAi(const string& nome) : Giocatore(nome) { }
+
+        Carta giocaCarta(const Stato& stato, double epsilon) {
+            Azione azione = scegliAzione(stato, epsilon);
+            Carta cartaGiocata = getMano().giocaCartaPerPosizione(azione);
+            return cartaGiocata;
+        }
+
+        void aggiornaStrategia(const Stato& stato, Azione azione, double ricompensa, const Stato& nuovoStato) {
+            aggiornaQ(stato, azione, ricompensa, nuovoStato);
+        }
+}
+
 class Gioco {
     private:
         Mazzo mazzo;
@@ -191,11 +216,11 @@ class Gioco {
         int puntiChiamati = 60;
     public:
         Gioco(){
-            giocatori.push_back(Giocatore("giocatore1"));
-            giocatori.push_back(Giocatore("giocatore2"));
-            giocatori.push_back(Giocatore("giocatore3"));
-            giocatori.push_back(Giocatore("giocatore4"));
-            giocatori.push_back(Giocatore("giocatore5"));
+            giocatori.push_back(Giocatore("player"));
+            giocatori.push_back(GiocatoreAI("Jacopo"));
+            giocatori.push_back(GiocatoreAI("Riccardo"));
+            giocatori.push_back(GiocatoreAI("Pietro"));
+            giocatori.push_back(GiocatoreAI("Daniele"));
 
             distribuisciCarte();
         }
@@ -303,6 +328,52 @@ class Gioco {
             return n;
         }
 
+        double calcolaRicompensa(const Stato& statoCorrente, const Carta& cartaGiocata, const Stato& nuovoStato) {
+            double ricompensa = 0.0;
+
+            int puntiChiamante = statoCorrente.carteGiocate[0].first->calcolaPunteggioMazzetto(); 
+            int puntiCompagno = statoCorrente.carteGiocate[1].first->calcolaPunteggioMazzetto();
+
+            int puntiAvversari = 0;
+            for (size_t i = 2; i < statoCorrente.carteGiocate.size(); ++i) {
+                puntiAvversari += statoCorrente.carteGiocate[i].first->calcolaPunteggioMazzetto();
+            }
+
+            Giocatore* giocatoreIA = statoCorrente.carteGiocate[0].first;
+
+            if (giocatoreIA == statoCorrente.carteGiocate[0].first || giocatoreIA == statoCorrente.carteGiocate[1].first) {
+                int puntiSquadra = puntiChiamante + puntiCompagno;
+                int puntiAvversariPostCarta = puntiAvversari + cartaGiocata.getValore();
+
+                if (puntiSquadra > puntiAvversariPostCarta) {
+                    ricompensa += puntiSquadra - puntiAvversariPostCarta;
+                }
+            } else {
+                int puntiAvversariPostCarta = puntiAvversari - cartaGiocata.getValore();
+
+                if (puntiAvversariPostCarta < puntiAvversari) {
+                    ricompensa += puntiAvversari - puntiAvversariPostCarta;
+                }
+            }
+            return ricompensa;
+        }
+
+        Stato aggiornaStato(const Stato& statoCorrente, const vector<pair<Giocatore*, Carta>>& carteGiocate, const Giocatore* vincitore, const Carta& cartaVincente) {
+            vector<Carta> nuoveCarteInMano = statoCorrente.carteInMano;
+            for (auto& carta : nuoveCarteInMano) {
+                if (carta == cartaVincente) {
+                    carta.setGiocata(true);
+                    break;
+                }
+            }
+
+            vector<pair<Giocatore*, Carta>> nuoveCarteGiocate = statoCorrente.carteGiocate;
+            nuoveCarteGiocate.insert(nuoveCarteGiocate.end(), carteGiocate.begin(), carteGiocate.end());
+
+            Stato nuovoStato(nuoveCarteInMano, statoCorrente.numeroChiamato, statoCorrente.semeChiamato, nuoveCarteGiocate);
+            return nuovoStato;
+        }
+
         void faseChiamata() {
             if (verificaGiocatori()) {
                 cout << "Tutti i giocatori possono giocare.\n";
@@ -374,6 +445,7 @@ class Gioco {
         void faseGioco() {
             int turno = 0; // Il turno iniziale è del primo giocatore
             int numeroGiri = 8; // Ogni giocatore ha 8 carte iniziali
+            double epsilon = 0.1;
             char semeChiamato = semeCarta; // Il seme della carta chiamata
             int numeroChiamato = numeroCarta; // Il numero della carta chiamata
             Giocatore* chiamanteGiocatore = nullptr; // Puntatore al giocatore chiamante
@@ -395,18 +467,24 @@ class Gioco {
             // Inizia la fase di gioco
             for (int i = 0; i < numeroGiri; i++) {
                 vector<pair<Giocatore*, Carta>> carteGiocate; // Per memorizzare le carte giocate in ogni giro
+                Stato statoCorrente = aggiornaStato(statoCorrente, carteGiocate, cartaVincente.first, cartaVincente.second);
                 char semeMano;
                 bool primoGiro = true;
                 int posizione; 
                 
                 // Ogni giocatore gioca una carta
                 for (auto& giocatore : giocatori) {
-                    giocatore.mostraMano();
-                    cout << giocatore.getNome() << ", inserisci la posizione della carta da giocare (1-8): ";
-                    cin >> posizione;
+                    Carta cartaGiocata;
 
-                        Carta cartaGiocata = giocatore.getMano().giocaCartaPerPosizione(posizione);
-                        carteGiocate.push_back({&giocatore, cartaGiocata});
+                    if(auto giocatoreAI = dynamic_cast<GiocatoreAI*>(&giocatore)) {
+                        cartaGiocata = giocatoreAI->giocaCarta(statoCorrente, epsilon);
+                    }else{
+                        giocatore.mostraMano();
+                        cout << giocatore.getNome() << ", inserisci la posizione della carta da giocare (1-8): ";
+                        cin >> posizione;
+
+                        cartaGiocata = giocatore.getMano().giocaCartaPerPosizione(posizione);
+                       
 
                         if (primoGiro) {
                             semeMano = cartaGiocata.getSeme();
@@ -416,6 +494,8 @@ class Gioco {
                         cout << giocatore.getNome() << " ha giocato ";
                         cartaGiocata.Scrivi();
                         cout << endl;
+                    }
+                    carteGiocate.push_back({&giocatore, cartaGiocata});
                 }
 
                 // Determiniamo il vincitore della mano
@@ -435,6 +515,14 @@ class Gioco {
                     }
                 }
 
+                for(auto& coppia : carteGiocate) {
+                    if(auto giocatoreAI = dynamic_cast<GiocatoreAI*>(coppia.first)) {
+                        Stato nuovoStato = aggiornaStato(statoCorrente, carteGiocate, cartaVincente.first, cartaVincente.second);
+                        double ricompensa = calcolaRicompensa(statoCorrente, cartaGiocata, nuovoStato);
+                        giocatoreAI->aggiornaStrategia(statoCorrente, /*azione*/, ricompensa, nuovoStato);
+                    }
+                }
+
                 cout << cartaVincente.first->getNome() << " ha vinto la mano con ";
                 cartaVincente.second.Scrivi();
                 cout << endl;
@@ -443,6 +531,8 @@ class Gioco {
                 for (const auto& cartaGiocata : carteGiocate) {
                     cartaVincente.first->getMazzetto().aggiungiCarta(cartaGiocata.second);
                 }
+
+                turnoGiocatore = cartaVincente.first->getId();
             }
 
             // Calcoliamo i punti e determiniamo se il chiamante ha vinto
